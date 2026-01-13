@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flood Resilience Network - Zynd AI</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>🌊</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.8); }
+        }
+        .pulse-glow { animation: pulse-glow 2s infinite; }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .alert-item { animation: slideIn 0.3s ease-out; }
+        
+        .risk-high { 
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            border: 2px solid #ef4444;
+        }
+        .risk-medium { 
+            background: linear-gradient(135deg, #d97706 0%, #92400e 100%);
+            border: 2px solid #f59e0b;
+        }
+        .risk-low { 
+            background: linear-gradient(135deg, #059669 0%, #065f46 100%);
+            border: 2px solid #10b981;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <!-- Header -->
+    <header class="bg-gray-800 border-b border-gray-700 py-4 px-6">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                    🌊 Flood Resilience Network
+                </h1>
+                <p class="text-gray-400 text-sm">AI-Powered Multi-Agent Flood Prediction & Emergency Coordination</p>
+            </div>
+            <div class="text-right">
+                <div class="flex items-center space-x-2">
+                    <div id="wsStatus" class="px-3 py-1 rounded-full text-xs font-semibold bg-gray-700">
+                        🔴 Disconnected
+                    </div>
+                    <button id="connectBtn" onclick="connectWebSocket()" 
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold transition">
+                        Connect WebSocket
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- LEFT COLUMN: Input Form -->
+        <div class="lg:col-span-1 space-y-6">
+            
+            <!-- Location Input Card -->
+            <div class="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
+                <h2 class="text-2xl font-bold mb-4 flex items-center">
+                    📍 Location Input
+                </h2>
+                
+                <form id="floodForm" class="space-y-4">
+                    <!-- Location Name -->
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Location Name</label>
+                        <input type="text" id="locationName" value="Mumbai" 
+                               class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    
+                    <!-- Coordinates -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">Latitude</label>
+                            <input type="number" id="latitude" value="19.0760" step="0.0001"
+                                   class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">Longitude</label>
+                            <input type="number" id="longitude" value="72.8777" step="0.0001"
+                                   class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
+                    
+                    <!-- Elevation -->
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Elevation (meters)</label>
+                        <input type="number" id="elevation" value="14" min="0"
+                               class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    
+                    <!-- Rainfall -->
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Rainfall (mm)</label>
+                        <input type="number" id="rainfall" value="600" min="0"
+                               class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    
+                    <!-- Slope -->
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Slope (degrees)</label>
+                        <input type="number" id="slope" value="0.5" step="0.1" min="0"
+                               class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    
+                    <!-- River Proximity -->
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">River Proximity</label>
+                        <select id="riverProximity" 
+                                class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="1">Near Water Body (Yes)</option>
+                            <option value="0">Not Near Water (No)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <button type="submit" 
+                            class="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 rounded-lg font-bold text-lg transition pulse-glow">
+                        🔮 Predict Flood Risk
+                    </button>
+                </form>
+                
+                <!-- Quick Test Scenarios -->
+                <div class="mt-6 pt-6 border-t border-gray-700">
+                    <p class="text-sm font-semibold mb-3 text-gray-400">Quick Test Scenarios:</p>
+                    <div class="space-y-2">
+                        <button onclick="loadScenario('high')" 
+                                class="w-full px-3 py-2 bg-red-900 hover:bg-red-800 rounded text-sm transition">
+                            🔴 High Risk (Critical Flood)
+                        </button>
+                        <button onclick="loadScenario('medium')" 
+                                class="w-full px-3 py-2 bg-yellow-900 hover:bg-yellow-800 rounded text-sm transition">
+                            🟡 Medium Risk (Moderate)
+                        </button>
+                        <button onclick="loadScenario('low')" 
+                                class="w-full px-3 py-2 bg-green-900 hover:bg-green-800 rounded text-sm transition">
+                            🟢 Low Risk (Safe)
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Agent Status Card -->
+            <div class="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
+                <h3 class="text-xl font-bold mb-4 flex items-center">
+                    🤖 Agent Status
+                </h3>
+                <div id="agentStatus" class="space-y-3">
+                    <div class="text-center py-4 text-gray-500 text-sm">
+                        Loading agent status...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- MIDDLE COLUMN: Results -->
+        <div class="lg:col-span-1 space-y-6">
+            
+            <!-- Prediction Results Card -->
+            <div class="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
+                <h2 class="text-2xl font-bold mb-4 flex items-center">
+                    📊 Prediction Results
+                </h2>
+                
+                <div id="resultsContainer">
+                    <div class="text-center py-12 text-gray-500">
+                        <div class="text-6xl mb-4">🔮</div>
+                        <p class="text-lg">Enter location data and click "Predict Flood Risk"</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Environmental Factors Card -->
+            <div id="factorsCard" class="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700 hidden">
+                <h3 class="text-xl font-bold mb-4">🌍 Environmental Factors</h3>
+                <div id="factorsContent" class="space-y-3 text-sm">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+            
+            <!-- Resources Card -->
+            <div id="resourcesCard" class="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700 hidden">
+                <h3 class="text-xl font-bold mb-4">💼 Mobilized Resources</h3>
+                <div id="resourcesContent" class="space-y-2">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- RIGHT COLUMN: Alerts -->
+        <div class="lg:col-span-1 space-y-6">
+            
+            <!-- Real-time Alerts Card -->
+            <div class="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
+                <h2 class="text-2xl font-bold mb-4 flex items-center">
+                    🚨 Real-Time Alerts
+                </h2>
+                
+                <div id="alertsContainer" class="space-y-3 max-h-[600px] overflow-y-auto">
+                    <div class="text-center py-8 text-gray-500">
+                        <div class="text-4xl mb-2">📡</div>
+                        <p class="text-sm">Connect WebSocket to receive alerts</p>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let wsConnected = false;
+
+        // Load test scenarios
+        function loadScenario(type) {
+            const scenarios = {
+                high: {
+                    name: 'Critical Flood Zone',
+                    lat: 19.076,
+                    lon: 72.877,
+                    elevation: 5,
+                    rainfall: 850,
+                    slope: 0.2,
+                    river: 1
+                },
+                medium: {
+                    name: 'Moderate Risk Area',
+                    lat: 19.076,
+                    lon: 72.877,
+                    elevation: 50,
+                    rainfall: 400,
+                    slope: 2.0,
+                    river: 1
+                },
+                low: {
+                    name: 'Safe Highland',
+                    lat: 18.520,
+                    lon: 73.856,
+                    elevation: 600,
+                    rainfall: 100,
+                    slope: 8.0,
+                    river: 0
+                }
+            };
+            
+            const scenario = scenarios[type];
+            document.getElementById('locationName').value = scenario.name;
+            document.getElementById('latitude').value = scenario.lat;
+            document.getElementById('longitude').value = scenario.lon;
+            document.getElementById('elevation').value = scenario.elevation;
+            document.getElementById('rainfall').value = scenario.rainfall;
+            document.getElementById('slope').value = scenario.slope;
+            document.getElementById('riverProximity').value = scenario.river;
+        }
+
+        // Form submission
+        document.getElementById('floodForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                location: {
+                    name: document.getElementById('locationName').value,
+                    lat: parseFloat(document.getElementById('latitude').value),
+                    lon: parseFloat(document.getElementById('longitude').value),
+                    elevation_m: parseFloat(document.getElementById('elevation').value),
+                    rainfall_mm: parseFloat(document.getElementById('rainfall').value),
+                    slope_deg: parseFloat(document.getElementById('slope').value),
+                    river_proximity: parseInt(document.getElementById('riverProximity').value)
+                }
+            };
+            
+            // Show loading
+            document.getElementById('resultsContainer').innerHTML = `
+                <div class="text-center py-12">
+                    <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    <p class="text-gray-400">Analyzing flood risk...</p>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                displayResults(result);
+            } catch (error) {
+                document.getElementById('resultsContainer').innerHTML = `
+                    <div class="text-center py-12 text-red-400">
+                        <div class="text-6xl mb-4">❌</div>
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        });
+
+        // Display results
+        function displayResults(result) {
+            const probability = (result.flood_probability * 100).toFixed(1);
+            const riskLevel = result.risk_level;
+            
+            let riskClass = '';
+            let emoji = '';
+            
+            if (riskLevel === 'HIGH') {
+                riskClass = 'risk-high';
+                emoji = '🔴';
+            } else if (riskLevel === 'MEDIUM') {
+                riskClass = 'risk-medium';
+                emoji = '⚠️';
+            } else {
+                riskClass = 'risk-low';
+                emoji = '✅';
+            }
+            
+            document.getElementById('resultsContainer').innerHTML = `
+                <div class="${riskClass} rounded-xl p-8 text-center mb-6">
+                    <div class="text-6xl mb-4">${emoji}</div>
+                    <h3 class="text-3xl font-bold mb-2">${riskLevel} RISK</h3>
+                    <p class="text-2xl">Probability: ${probability}%</p>
+                </div>
+            `;
+            
+            // Show factors
+            const features = result.features_used || {};
+            document.getElementById('factorsCard').classList.remove('hidden');
+            document.getElementById('factorsContent').innerHTML = `
+                <div class="flex justify-between">
+                    <span>Elevation:</span>
+                    <span class="font-bold">${features.elevation_m || 0}m</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Rainfall (24h):</span>
+                    <span class="font-bold">${features.rainfall_24h_mm || features.rainfall_mm || 0}mm</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Slope:</span>
+                    <span class="font-bold">${features.slope_deg || 0}°</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Distance to Water:</span>
+                    <span class="font-bold">${features.distance_to_water_m || 0}m</span>
+                </div>
+            `;
+        }
+
+        // WebSocket connection
+        function connectWebSocket() {
+            if (wsConnected) return;
+            
+            const clientId = 'client_' + Math.random().toString(36).substr(2, 9);
+            ws = new WebSocket(`ws://localhost:8000/ws/alerts/${clientId}`);
+            
+            ws.onopen = () => {
+                wsConnected = true;
+                document.getElementById('wsStatus').innerHTML = '🟢 Connected';
+                document.getElementById('wsStatus').className = 'px-3 py-1 rounded-full text-xs font-semibold bg-green-600';
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('connectBtn').className = 'px-4 py-2 bg-gray-600 rounded-lg text-sm font-semibold cursor-not-allowed';
+                
+                addAlert('info', 'Connected to real-time alert system');
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'FLOOD_ALERT') {
+                    const locationName = data.location?.name || 'Unknown';
+                    const severity = data.risk_level === 'HIGH' ? '🔴 CRITICAL' : '⚠️ WARNING';
+                    
+                    addAlert('warning', `${severity}: ${(data.probability * 100).toFixed(1)}% flood risk in ${locationName}`);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                addAlert('error', 'WebSocket connection error');
+            };
+            
+            ws.onclose = () => {
+                wsConnected = false;
+                document.getElementById('wsStatus').innerHTML = '🔴 Disconnected';
+                document.getElementById('wsStatus').className = 'px-3 py-1 rounded-full text-xs font-semibold bg-gray-700';
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('connectBtn').className = 'px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold transition';
+            };
+        }
+
+        // Add alert to feed
+        function addAlert(type, message) {
+            const container = document.getElementById('alertsContainer');
+            
+            // Clear placeholder
+            if (container.querySelector('.text-center')) {
+                container.innerHTML = '';
+            }
+            
+            const colors = {
+                info: 'bg-blue-900 border-blue-600',
+                warning: 'bg-orange-900 border-orange-600',
+                error: 'bg-red-900 border-red-600'
+            };
+            
+            const alert = document.createElement('div');
+            alert.className = `alert-item p-4 rounded-lg border ${colors[type]} text-sm`;
+            alert.innerHTML = `
+                <div class="font-semibold mb-1">${message}</div>
+                <div class="text-xs text-gray-400">${new Date().toLocaleTimeString()}</div>
+            `;
+            
+            container.insertBefore(alert, container.firstChild);
+            
+            // Limit to 20 alerts
+            while (container.children.length > 20) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        // Auto-connect WebSocket on page load
+        setTimeout(() => {
+            connectWebSocket();
+            updateAgentStatus();
+            // Update agent status every 3 seconds
+            setInterval(updateAgentStatus, 3000);
+        }, 1000);
+        
+        // Fetch and display agent status
+        async function updateAgentStatus() {
+            try {
+                const response = await fetch('/agent-status');
+                const agents = await response.json();
+                
+                const statusMap = {
+                    'monitoring': 'Monitoring Agent',
+                    'prediction': 'Prediction Agent',
+                    'alert': 'Alert Agent',
+                    'resource': 'Resource Agent'
+                };
+                
+                let html = '';
+                for (const [key, agent] of Object.entries(agents)) {
+                    const name = statusMap[key] || agent.agent_type;
+                    const status = agent.status.toUpperCase();
+                    const actionCount = agent.action_count || 0;
+                    
+                    let statusClass = 'bg-gray-600';
+                    let statusText = status;
+                    
+                    if (status === 'MONITORING' || status === 'PREDICTING' || status === 'ALERTING' || status === 'MOBILIZING') {
+                        statusClass = 'bg-green-600';
+                        statusText = 'ACTIVE';
+                    } else if (status === 'READY') {
+                        statusClass = 'bg-blue-600';
+                        statusText = 'READY';
+                    } else if (status === 'IDLE') {
+                        statusClass = 'bg-gray-600';
+                        statusText = 'IDLE';
+                    }
+                    
+                    html += `
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">${name}</span>
+                            <div class="flex items-center gap-2">
+                                ${actionCount > 0 ? `<span class="text-xs text-gray-400">${actionCount}x</span>` : ''}
+                                <span class="px-3 py-1 ${statusClass} rounded-full text-xs font-bold">${statusText}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('agentStatus').innerHTML = html;
+            } catch (error) {
+                console.error('Failed to fetch agent status:', error);
+            }
+        }
+    </script>
+</body>
+</html>
