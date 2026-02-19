@@ -37,7 +37,7 @@ class FloodMLP(nn.Module):
 
 class PredictionAgent(BaseAgent):
     def __init__(self, agent_id: str, model_path: str):
-        capabilities = ["flood_prediction", "risk_assessment", "ml_inference"]
+        capabilities = ["flood_prediction", "risk_assessment", "ml_inference", "confidence_analysis"]
         super().__init__(agent_id, "PredictionAgent", capabilities)
         
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -77,21 +77,20 @@ class PredictionAgent(BaseAgent):
         
         try:
             # Extract or estimate all 20 features
-            # Get basic inputs from frontend
             elevation_m = data.get('elevation_m', 50)
             rainfall_mm = data.get('rainfall_mm', 50)
             slope_deg = data.get('slope_deg', 5)
             river_proximity_binary = data.get('river_proximity', 1)
             
-            # Convert binary river proximity to distance (0=far, 1=near)
+            # Convert binary river proximity to distance
             distance_to_water_m = 100 if river_proximity_binary == 1 else 2000
             
-            # Generate realistic estimates for missing features based on inputs
+            # Generate realistic estimates for missing features
             features_dict = {
                 'elevation_m': elevation_m,
                 'slope_deg': slope_deg,
-                'aspect_deg': 180,  # Default south-facing
-                'curvature': -0.5 if elevation_m < 100 else 0.5,  # Low elevation = concave
+                'aspect_deg': 180,
+                'curvature': -0.5 if elevation_m < 100 else 0.5,
                 'flow_accumulation': max(1000, 10000 / (elevation_m + 1)),
                 'distance_to_water_m': distance_to_water_m,
                 'watershed_area_km2': 50,
@@ -106,15 +105,14 @@ class PredictionAgent(BaseAgent):
                 'vegetation_cover_pct': 50,
                 'impervious_surface_pct': 30,
                 'drainage_capacity': 0.6,
-                'season': 2,  # Spring
-                'month': 6    # June
+                'season': 2,
+                'month': 6
             }
             
             # Create feature array in correct order
             if len(self.feature_columns) == 20:
                 features = np.array([[features_dict[col] for col in self.feature_columns]])
             else:
-                # Fallback to old 4-feature model
                 features = np.array([[elevation_m, rainfall_mm, river_proximity_binary, slope_deg]])
             
             print(f"   Features ({len(self.feature_columns)}): elevation={elevation_m}m, rainfall={rainfall_mm}mm, slope={slope_deg}°")
@@ -123,10 +121,8 @@ class PredictionAgent(BaseAgent):
             features_scaled = self.scaler.transform(features)
             
             if self.model_type == 'MLP':
-                # MLP takes simple 2D input
                 input_tensor = torch.FloatTensor(features_scaled).to(self.device)
             else:
-                # LSTM requires sequence input
                 sequence = np.repeat(features_scaled, 10, axis=0)
                 input_tensor = torch.FloatTensor(sequence).unsqueeze(0).to(self.device)
             
@@ -135,8 +131,10 @@ class PredictionAgent(BaseAgent):
                 flood_probability = prediction.item()
             
             risk_level = self._categorize_risk(flood_probability)
+            confidence = self._calculate_confidence(flood_probability, features_dict)
+            risk_factors = self._analyze_risk_factors(features_dict, flood_probability)
             
-            print(f"   ✓ Prediction: {flood_probability*100:.1f}% | Risk: {risk_level}")
+            print(f"   ✓ Prediction: {flood_probability*100:.1f}% | Risk: {risk_level} | Confidence: {confidence['level']}")
             
             self.status = "idle"
             
@@ -144,6 +142,9 @@ class PredictionAgent(BaseAgent):
                 "location": data.get('location', {}),
                 "flood_probability": flood_probability,
                 "risk_level": risk_level,
+                "confidence": confidence,
+                "risk_factors": risk_factors,
+                "weather": data.get('weather', {}),
                 "timestamp": data.get('timestamp'),
                 "features_used": {
                     "elevation_m": elevation_m,
@@ -167,3 +168,67 @@ class PredictionAgent(BaseAgent):
             return "MEDIUM"
         else:
             return "LOW"
+    
+    def _calculate_confidence(self, probability: float, features: Dict) -> Dict[str, Any]:
+        """Calculate prediction confidence with bounds"""
+        # Confidence is higher when the model is very certain (close to 0 or 1)
+        certainty = abs(probability - 0.5) * 2  # 0 at 0.5, 1 at extremes
+        
+        # Margin of error decreases with certainty
+        margin = max(0.05, 0.15 * (1 - certainty))
+        
+        conf_score = 0.7 + certainty * 0.25  # 70-95%
+        
+        return {
+            "score": round(conf_score, 3),
+            "level": "High" if conf_score > 0.85 else "Medium" if conf_score > 0.75 else "Low",
+            "lower_bound": round(max(0, probability - margin), 3),
+            "upper_bound": round(min(1, probability + margin), 3),
+            "margin_of_error": round(margin, 3)
+        }
+    
+    def _analyze_risk_factors(self, features: Dict, probability: float) -> list:
+        """Analyze which features contribute most to the risk"""
+        factors = []
+        
+        # Rainfall impact
+        rainfall = features.get('rainfall_24h_mm', 0)
+        if rainfall > 400:
+            factors.append({"factor": "Extreme Rainfall", "impact": "critical", "value": f"{rainfall}mm/24h", "icon": "🌧️", "contribution": 0.35})
+        elif rainfall > 200:
+            factors.append({"factor": "Heavy Rainfall", "impact": "high", "value": f"{rainfall}mm/24h", "icon": "🌧️", "contribution": 0.25})
+        elif rainfall > 100:
+            factors.append({"factor": "Moderate Rainfall", "impact": "medium", "value": f"{rainfall}mm/24h", "icon": "🌦️", "contribution": 0.15})
+        else:
+            factors.append({"factor": "Light Rainfall", "impact": "low", "value": f"{rainfall}mm/24h", "icon": "🌤️", "contribution": 0.05})
+        
+        # Elevation impact
+        elevation = features.get('elevation_m', 0)
+        if elevation < 20:
+            factors.append({"factor": "Very Low Elevation", "impact": "critical", "value": f"{elevation}m", "icon": "⬇️", "contribution": 0.30})
+        elif elevation < 50:
+            factors.append({"factor": "Low Elevation", "impact": "high", "value": f"{elevation}m", "icon": "⬇️", "contribution": 0.20})
+        elif elevation < 200:
+            factors.append({"factor": "Moderate Elevation", "impact": "medium", "value": f"{elevation}m", "icon": "➡️", "contribution": 0.10})
+        else:
+            factors.append({"factor": "High Elevation", "impact": "low", "value": f"{elevation}m", "icon": "⬆️", "contribution": 0.03})
+        
+        # Water proximity
+        dist = features.get('distance_to_water_m', 1000)
+        if dist < 200:
+            factors.append({"factor": "Near Water Body", "impact": "high", "value": f"{dist}m", "icon": "🌊", "contribution": 0.20})
+        else:
+            factors.append({"factor": "Far from Water", "impact": "low", "value": f"{dist}m", "icon": "🏔️", "contribution": 0.05})
+        
+        # Slope
+        slope = features.get('slope_deg', 5)
+        if slope < 1:
+            factors.append({"factor": "Flat Terrain", "impact": "high", "value": f"{slope}°", "icon": "🏞️", "contribution": 0.15})
+        elif slope < 5:
+            factors.append({"factor": "Gentle Slope", "impact": "medium", "value": f"{slope}°", "icon": "📐", "contribution": 0.08})
+        else:
+            factors.append({"factor": "Steep Slope", "impact": "low", "value": f"{slope}°", "icon": "⛰️", "contribution": 0.03})
+        
+        # Sort by contribution
+        factors.sort(key=lambda x: x['contribution'], reverse=True)
+        return factors

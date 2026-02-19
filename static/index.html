@@ -1,488 +1,1285 @@
-<!DOCTYPE html>
-<html lang="en">
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flood Resilience Network - Zynd AI</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>🌊</text></svg>">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Flood Resilience Network - AI Flood Risk Predictor</title>
+    <meta name="description" content="AI-Powered Multi-Agent Flood Prediction and Emergency Coordination System">
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>🌊</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
-            50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.8); }
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
         }
-        .pulse-glow { animation: pulse-glow 2s infinite; }
-        
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+
+        /* ── THEME: Dark (default) ── */
+        [data-theme="dark"] {
+            --bg: #0a0e1a;
+            --bg2: #111827;
+            --bg3: #1e293b;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-b: rgba(255, 255, 255, 0.08);
+            --glass-hover: rgba(255, 255, 255, 0.15);
+            --txt: #f1f5f9;
+            --txt2: #94a3b8;
+            --txt3: #64748b;
+            --hero-bg: linear-gradient(135deg, #0f172a, #1e1b4b, #0f172a);
+            --hero-glow1: rgba(59, 130, 246, .12);
+            --hero-glow2: rgba(6, 182, 212, .08);
+            --input-bg: rgba(255, 255, 255, .05);
+            --card-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            --blue: #3b82f6;
+            --cyan: #06b6d4;
+            --green: #10b981;
+            --yellow: #f59e0b;
+            --red: #ef4444;
+            --purple: #8b5cf6;
+            --popup-bg: #1e293b;
+            --popup-txt: #f1f5f9;
+            --chart-grid: rgba(255, 255, 255, .04);
         }
-        .alert-item { animation: slideIn 0.3s ease-out; }
-        
-        .risk-high { 
-            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-            border: 2px solid #ef4444;
+
+        /* ── THEME: Light ── */
+        [data-theme="light"] {
+            --bg: #f0f4f8;
+            --bg2: #ffffff;
+            --bg3: #e2e8f0;
+            --glass: rgba(255, 255, 255, 0.7);
+            --glass-b: rgba(0, 0, 0, 0.08);
+            --glass-hover: rgba(0, 0, 0, 0.12);
+            --txt: #0f172a;
+            --txt2: #475569;
+            --txt3: #64748b;
+            --hero-bg: linear-gradient(135deg, #dbeafe, #e0e7ff, #dbeafe);
+            --hero-glow1: rgba(59, 130, 246, .08);
+            --hero-glow2: rgba(6, 182, 212, .05);
+            --input-bg: rgba(0, 0, 0, .04);
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            --blue: #2563eb;
+            --cyan: #0891b2;
+            --green: #059669;
+            --yellow: #d97706;
+            --red: #dc2626;
+            --purple: #7c3aed;
+            --popup-bg: #ffffff;
+            --popup-txt: #0f172a;
+            --chart-grid: rgba(0, 0, 0, .06);
         }
-        .risk-medium { 
-            background: linear-gradient(135deg, #d97706 0%, #92400e 100%);
-            border: 2px solid #f59e0b;
+
+
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--txt);
+            line-height: 1.6;
+            overflow-x: hidden;
+            transition: background .4s ease, color .4s ease
         }
-        .risk-low { 
-            background: linear-gradient(135deg, #059669 0%, #065f46 100%);
-            border: 2px solid #10b981;
+
+        .gc {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-b);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all .3s ease
+        }
+
+        .gc:hover {
+            border-color: var(--glass-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--card-shadow)
+        }
+
+        /* Hero */
+        .hero {
+            position: relative;
+            background: var(--hero-bg);
+            padding: 40px 0 30px;
+            overflow: hidden;
+            transition: background .4s ease
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 20% 50%, var(--hero-glow1) 0%, transparent 60%), radial-gradient(ellipse at 80% 50%, var(--hero-glow2) 0%, transparent 60%)
+        }
+
+        .hero-c {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--blue), var(--cyan), var(--green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px
+        }
+
+        .hero-sub {
+            color: var(--txt2);
+            font-size: 1rem
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            margin-top: 24px;
+            flex-wrap: wrap
+        }
+
+        .stat-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--input-bg);
+            border: 1px solid var(--glass-b);
+            border-radius: 12px;
+            font-size: .85rem;
+            transition: all .3s
+        }
+
+        .stat-chip .n {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--cyan)
+        }
+
+        .stat-chip .l {
+            color: var(--txt2)
+        }
+
+        .hero-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 12px
+        }
+
+        .hero-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap
+        }
+
+        /* Theme Picker */
+        .theme-picker {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            padding: 4px;
+            background: var(--input-bg);
+            border: 1px solid var(--glass-b);
+            border-radius: 12px
+        }
+
+        .theme-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all .2s;
+            position: relative
+        }
+
+        .theme-btn:hover {
+            transform: scale(1.15)
+        }
+
+        .theme-btn.active {
+            border-color: var(--blue);
+            box-shadow: 0 0 8px rgba(59, 130, 246, .4)
+        }
+
+        .theme-btn[data-t="dark"] {
+            background: linear-gradient(135deg, #0a0e1a, #1e1b4b)
+        }
+
+        .theme-btn[data-t="light"] {
+            background: linear-gradient(135deg, #f0f4f8, #dbeafe)
+        }
+
+
+
+        .theme-label {
+            font-size: .7rem;
+            color: var(--txt3);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .5px
+        }
+
+        /* Map Style Picker */
+        .map-style-picker {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+            flex-wrap: wrap
+        }
+
+        .map-style-btn {
+            padding: 6px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--glass-b);
+            background: var(--input-bg);
+            color: var(--txt2);
+            font-family: inherit;
+            font-size: .75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s
+        }
+
+        .map-style-btn:hover {
+            border-color: var(--blue);
+            color: var(--txt)
+        }
+
+        .map-style-btn.active {
+            background: var(--blue);
+            color: #fff;
+            border-color: var(--blue)
+        }
+
+        /* WS Badge */
+        .ws-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: .75rem;
+            font-weight: 600;
+            background: var(--input-bg);
+            border: 1px solid var(--glass-b)
+        }
+
+        .main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 24px
+        }
+
+        .right {
+            display: flex;
+            flex-direction: column;
+            gap: 24px
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px
+        }
+
+        .st {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .fg {
+            margin-bottom: 16px
+        }
+
+        .fl {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            color: var(--txt2);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: .5px
+        }
+
+        .fi,
+        .fs {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--input-bg);
+            border: 1px solid var(--glass-b);
+            border-radius: 10px;
+            color: var(--txt);
+            font-family: inherit;
+            font-size: .9rem;
+            transition: all .2s;
+            outline: none
+        }
+
+        .fi:focus,
+        .fs:focus {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, .15)
+        }
+
+        .fr {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px
+        }
+
+        .btn-p {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--blue), var(--cyan));
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .3s
+        }
+
+        .btn-p:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, .4)
+        }
+
+        .btn-p.ld {
+            opacity: .7;
+            pointer-events: none
+        }
+
+        .btn-s {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--glass-b);
+            border-radius: 8px;
+            background: var(--glass);
+            color: var(--txt2);
+            font-family: inherit;
+            font-size: .8rem;
+            cursor: pointer;
+            transition: all .2s;
+            text-align: left
+        }
+
+        .btn-s:hover {
+            border-color: var(--blue);
+            color: var(--txt);
+            background: rgba(59, 130, 246, .08)
+        }
+
+        /* Risk display */
+        .rd {
+            text-align: center;
+            padding: 32px 20px;
+            border-radius: 16px;
+            position: relative;
+            overflow: hidden
+        }
+
+        .rd.high {
+            background: linear-gradient(135deg, rgba(239, 68, 68, .15), rgba(185, 28, 28, .1));
+            border: 1px solid rgba(239, 68, 68, .3)
+        }
+
+        .rd.medium {
+            background: linear-gradient(135deg, rgba(245, 158, 11, .15), rgba(180, 83, 9, .1));
+            border: 1px solid rgba(245, 158, 11, .3)
+        }
+
+        .rd.low {
+            background: linear-gradient(135deg, rgba(16, 185, 129, .15), rgba(6, 95, 70, .1));
+            border: 1px solid rgba(16, 185, 129, .3)
+        }
+
+        .rd .re {
+            font-size: 3.5rem;
+            margin-bottom: 8px
+        }
+
+        .rd .rl {
+            font-size: 1.8rem;
+            font-weight: 800
+        }
+
+        .rd .rp {
+            font-size: 2.5rem;
+            font-weight: 800
+        }
+
+        .rd .rp .pct {
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: var(--txt2)
+        }
+
+        .cb {
+            margin-top: 16px
+        }
+
+        .cb-h {
+            display: flex;
+            justify-content: space-between;
+            font-size: .8rem;
+            margin-bottom: 6px
+        }
+
+        .cb-t {
+            height: 8px;
+            background: var(--input-bg);
+            border-radius: 4px;
+            overflow: hidden
+        }
+
+        .cb-f {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s ease
+        }
+
+        .cb-b {
+            display: flex;
+            justify-content: space-between;
+            font-size: .75rem;
+            color: var(--txt3);
+            margin-top: 4px
+        }
+
+        /* Factor items */
+        .fi-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            background: var(--input-bg);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            transition: all .3s
+        }
+
+        .fi-icon {
+            font-size: 1.3rem;
+            width: 36px;
+            text-align: center
+        }
+
+        .fi-info {
+            flex: 1
+        }
+
+        .fi-name {
+            font-size: .85rem;
+            font-weight: 600
+        }
+
+        .fi-val {
+            font-size: .75rem;
+            color: var(--txt3)
+        }
+
+        .fi-badge {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: .7rem;
+            font-weight: 600;
+            text-transform: uppercase
+        }
+
+        .fi-badge.critical {
+            background: rgba(239, 68, 68, .2);
+            color: #fca5a5
+        }
+
+        .fi-badge.high {
+            background: rgba(245, 158, 11, .2);
+            color: #fcd34d
+        }
+
+        .fi-badge.medium {
+            background: rgba(59, 130, 246, .2);
+            color: #93c5fd
+        }
+
+        .fi-badge.low {
+            background: rgba(16, 185, 129, .2);
+            color: #6ee7b7
+        }
+
+        /* Weather */
+        .wg {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px
+        }
+
+        .wi {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px;
+            background: var(--input-bg);
+            border-radius: 10px;
+            transition: all .3s
+        }
+
+        .wi .wv {
+            font-size: 1.1rem;
+            font-weight: 700
+        }
+
+        .wi .wl {
+            font-size: .7rem;
+            color: var(--txt3);
+            margin-top: 2px
+        }
+
+        .wb {
+            text-align: center;
+            padding: 20px;
+            background: var(--input-bg);
+            border-radius: 12px;
+            margin-bottom: 12px
+        }
+
+        .wb .wbi {
+            font-size: 3rem
+        }
+
+        .wb .wbt {
+            font-size: 2.2rem;
+            font-weight: 800
+        }
+
+        .wb .wbc {
+            font-size: .9rem;
+            color: var(--txt2)
+        }
+
+        /* Safety */
+        .ss {
+            margin-bottom: 20px
+        }
+
+        .sh {
+            font-size: .9rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px
+        }
+
+        .sh.dos {
+            color: var(--green)
+        }
+
+        .sh.donts {
+            color: var(--red)
+        }
+
+        .ti {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 12px;
+            background: var(--input-bg);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: .83rem;
+            transition: all .3s
+        }
+
+        .ti .tic {
+            font-size: 1rem;
+            flex-shrink: 0;
+            margin-top: 1px
+        }
+
+        .tp {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: .65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: 6px
+        }
+
+        .tp.critical {
+            background: rgba(239, 68, 68, .2);
+            color: #fca5a5
+        }
+
+        .tp.high {
+            background: rgba(245, 158, 11, .2);
+            color: #fcd34d
+        }
+
+        .tp.medium {
+            background: rgba(59, 130, 246, .2);
+            color: #93c5fd
+        }
+
+        /* Contacts */
+        .ci {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--input-bg);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            transition: all .3s
+        }
+
+        .cn {
+            font-size: .8rem;
+            display: flex;
+            align-items: center;
+            gap: 6px
+        }
+
+        .cnum {
+            font-size: .85rem;
+            font-weight: 700;
+            color: var(--cyan)
+        }
+
+        /* Map */
+        #floodMap {
+            height: 400px;
+            border-radius: 12px;
+            z-index: 1;
+            transition: all .3s
+        }
+
+        .leaflet-popup-content-wrapper {
+            background: var(--popup-bg) !important;
+            color: var(--popup-txt) !important;
+            border-radius: 12px !important;
+            border: 1px solid var(--glass-b) !important
+        }
+
+        .leaflet-popup-tip {
+            background: var(--popup-bg) !important
+        }
+
+        .leaflet-popup-content {
+            font-family: 'Inter', sans-serif !important;
+            font-size: .85rem !important
+        }
+
+        /* Chart */
+        .chart-c {
+            position: relative;
+            height: 250px
+        }
+
+        /* Alerts */
+        .af {
+            max-height: 300px;
+            overflow-y: auto
+        }
+
+        .ai {
+            padding: 10px 14px;
+            background: var(--input-bg);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--blue);
+            animation: si .3s ease
+        }
+
+        .ai.critical {
+            border-left-color: var(--red)
+        }
+
+        .ai.warning {
+            border-left-color: var(--yellow)
+        }
+
+        .ai .am {
+            font-size: .83rem;
+            font-weight: 500
+        }
+
+        .ai .at {
+            font-size: .7rem;
+            color: var(--txt3);
+            margin-top: 4px
+        }
+
+        /* Agent rows */
+        .ar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: var(--input-bg);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            transition: all .3s
+        }
+
+        .an {
+            font-size: .85rem;
+            font-weight: 500
+        }
+
+        .ab {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: .7rem;
+            font-weight: 600
+        }
+
+        .ab.ready {
+            background: rgba(59, 130, 246, .2);
+            color: #93c5fd
+        }
+
+        .ab.active {
+            background: rgba(16, 185, 129, .2);
+            color: #6ee7b7
+        }
+
+        .ab.idle {
+            background: var(--input-bg);
+            color: var(--txt3)
+        }
+
+        /* Evacuation */
+        .es {
+            text-align: center;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            font-weight: 700;
+            font-size: .9rem
+        }
+
+        .es.critical {
+            background: rgba(239, 68, 68, .15);
+            border: 1px solid rgba(239, 68, 68, .3);
+            color: #fca5a5
+        }
+
+        .es.moderate {
+            background: rgba(245, 158, 11, .15);
+            border: 1px solid rgba(245, 158, 11, .3);
+            color: #fcd34d
+        }
+
+        .es.none {
+            background: rgba(16, 185, 129, .15);
+            border: 1px solid rgba(16, 185, 129, .3);
+            color: #6ee7b7
+        }
+
+        .ri {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            background: var(--input-bg);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: .83rem
+        }
+
+        /* Placeholder */
+        .ph {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--txt3)
+        }
+
+        .ph .pi {
+            font-size: 3rem;
+            margin-bottom: 12px;
+            opacity: .5
+        }
+
+        .ph .pt {
+            font-size: .9rem
+        }
+
+        /* Misc */
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px
+        }
+
+        .dot.on {
+            background: var(--green);
+            box-shadow: 0 0 6px var(--green)
+        }
+
+        .dot.off {
+            background: var(--red)
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--glass-b);
+            border-top-color: var(--blue);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+            margin: 0 auto 16px
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        @keyframes si {
+            from {
+                transform: translateX(20px);
+                opacity: 0
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1
+            }
+        }
+
+        @keyframes fi {
+            from {
+                opacity: 0;
+                transform: translateY(10px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        .fade-in {
+            animation: fi .5s ease forwards
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--glass-b);
+            border-radius: 3px
+        }
+
+        @media(max-width:1024px) {
+            .grid {
+                grid-template-columns: 1fr
+            }
+
+            .two-col {
+                grid-template-columns: 1fr
+            }
+        }
+
+        @media(max-width:640px) {
+            .hero h1 {
+                font-size: 1.6rem
+            }
+
+            .stats-row {
+                gap: 8px
+            }
+
+            .fr {
+                grid-template-columns: 1fr
+            }
+
+            .hero-controls {
+                flex-direction: column;
+                align-items: flex-start
+            }
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white">
-    <!-- Header -->
-    <header class="bg-gray-800 border-b border-gray-700 py-4 px-6">
-        <div class="container mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                    🌊 Flood Resilience Network
-                </h1>
-                <p class="text-gray-400 text-sm">AI-Powered Multi-Agent Flood Prediction & Emergency Coordination</p>
-            </div>
-            <div class="text-right">
-                <div class="flex items-center space-x-2">
-                    <div id="wsStatus" class="px-3 py-1 rounded-full text-xs font-semibold bg-gray-700">
-                        🔴 Disconnected
-                    </div>
-                    <button id="connectBtn" onclick="connectWebSocket()" 
-                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold transition">
-                        Connect WebSocket
-                    </button>
-                </div>
-            </div>
-        </div>
-    </header>
 
-    <div class="container mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- LEFT COLUMN: Input Form -->
-        <div class="lg:col-span-1 space-y-6">
-            
-            <!-- Location Input Card -->
-            <div class="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
-                <h2 class="text-2xl font-bold mb-4 flex items-center">
-                    📍 Location Input
-                </h2>
-                
-                <form id="floodForm" class="space-y-4">
-                    <!-- Location Name -->
+<body>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-c">
+            <div class="hero-top">
+                <div>
+                    <h1>🌊 Flood Resilience Network</h1>
+                    <p class="hero-sub">AI-Powered Multi-Agent Flood Prediction &amp; Emergency Coordination</p>
+                </div>
+                <div class="hero-controls">
+                    <!-- Theme Picker -->
                     <div>
-                        <label class="block text-sm font-semibold mb-2">Location Name</label>
-                        <input type="text" id="locationName" value="Mumbai" 
-                               class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
-                    
-                    <!-- Coordinates -->
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-sm font-semibold mb-2">Latitude</label>
-                            <input type="number" id="latitude" value="19.0760" step="0.0001"
-                                   class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold mb-2">Longitude</label>
-                            <input type="number" id="longitude" value="72.8777" step="0.0001"
-                                   class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        <div class="theme-label" style="margin-bottom:4px;text-align:center">Theme</div>
+                        <div class="theme-picker">
+                            <button class="theme-btn active" data-t="dark" title="Midnight Dark"
+                                onclick="setTheme('dark')"></button>
+                            <button class="theme-btn" data-t="light" title="Clean Light"
+                                onclick="setTheme('light')"></button>
+
                         </div>
                     </div>
-                    
-                    <!-- Elevation -->
-                    <div>
-                        <label class="block text-sm font-semibold mb-2">Elevation (meters)</label>
-                        <input type="number" id="elevation" value="14" min="0"
-                               class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
-                    
-                    <!-- Rainfall -->
-                    <div>
-                        <label class="block text-sm font-semibold mb-2">Rainfall (mm)</label>
-                        <input type="number" id="rainfall" value="600" min="0"
-                               class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
-                    
-                    <!-- Slope -->
-                    <div>
-                        <label class="block text-sm font-semibold mb-2">Slope (degrees)</label>
-                        <input type="number" id="slope" value="0.5" step="0.1" min="0"
-                               class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
-                    
-                    <!-- River Proximity -->
-                    <div>
-                        <label class="block text-sm font-semibold mb-2">River Proximity</label>
-                        <select id="riverProximity" 
-                                class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                            <option value="1">Near Water Body (Yes)</option>
-                            <option value="0">Not Near Water (No)</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Submit Button -->
-                    <button type="submit" 
-                            class="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 rounded-lg font-bold text-lg transition pulse-glow">
-                        🔮 Predict Flood Risk
-                    </button>
-                </form>
-                
-                <!-- Quick Test Scenarios -->
-                <div class="mt-6 pt-6 border-t border-gray-700">
-                    <p class="text-sm font-semibold mb-3 text-gray-400">Quick Test Scenarios:</p>
-                    <div class="space-y-2">
-                        <button onclick="loadScenario('high')" 
-                                class="w-full px-3 py-2 bg-red-900 hover:bg-red-800 rounded text-sm transition">
-                            🔴 High Risk (Critical Flood)
-                        </button>
-                        <button onclick="loadScenario('medium')" 
-                                class="w-full px-3 py-2 bg-yellow-900 hover:bg-yellow-800 rounded text-sm transition">
-                            🟡 Medium Risk (Moderate)
-                        </button>
-                        <button onclick="loadScenario('low')" 
-                                class="w-full px-3 py-2 bg-green-900 hover:bg-green-800 rounded text-sm transition">
-                            🟢 Low Risk (Safe)
-                        </button>
-                    </div>
+                    <!-- WS Badge -->
+                    <div class="ws-badge" id="wsStatus"><span class="dot off"></span>Disconnected</div>
                 </div>
             </div>
-            
-            <!-- Agent Status Card -->
-            <div class="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
-                <h3 class="text-xl font-bold mb-4 flex items-center">
-                    🤖 Agent Status
-                </h3>
-                <div id="agentStatus" class="space-y-3">
-                    <div class="text-center py-4 text-gray-500 text-sm">
-                        Loading agent status...
-                    </div>
-                </div>
+            <div class="stats-row">
+                <div class="stat-chip"><span class="n" id="statPred">0</span><span class="l">Predictions</span></div>
+                <div class="stat-chip"><span class="n">4</span><span class="l">Active Agents</span></div>
+                <div class="stat-chip"><span class="n">20</span><span class="l">ML Features</span></div>
+                <div class="stat-chip"><span class="n">MLP</span><span class="l">Neural Network</span></div>
             </div>
         </div>
-        
-        <!-- MIDDLE COLUMN: Results -->
-        <div class="lg:col-span-1 space-y-6">
-            
-            <!-- Prediction Results Card -->
-            <div class="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
-                <h2 class="text-2xl font-bold mb-4 flex items-center">
-                    📊 Prediction Results
-                </h2>
-                
-                <div id="resultsContainer">
-                    <div class="text-center py-12 text-gray-500">
-                        <div class="text-6xl mb-4">🔮</div>
-                        <p class="text-lg">Enter location data and click "Predict Flood Risk"</p>
+    </section>
+
+    <!-- Main Content -->
+    <div class="main">
+        <div class="grid">
+            <!-- LEFT: Input -->
+            <div>
+                <div class="gc" style="margin-bottom:24px">
+                    <div class="st"><span>📍</span> Location Input</div>
+                    <form id="floodForm">
+                        <div class="fg"><label class="fl">Location Name</label><input type="text" id="locName"
+                                value="Mumbai" class="fi"></div>
+                        <div class="fr fg">
+                            <div><label class="fl">Latitude</label><input type="number" id="lat" value="19.0760"
+                                    step="0.0001" class="fi"></div>
+                            <div><label class="fl">Longitude</label><input type="number" id="lon" value="72.8777"
+                                    step="0.0001" class="fi"></div>
+                        </div>
+                        <div class="fg"><label class="fl">Elevation (meters)</label><input type="number" id="elev"
+                                value="14" min="0" class="fi"></div>
+                        <div class="fg"><label class="fl">Rainfall (mm/24h)</label><input type="number" id="rain"
+                                value="600" min="0" class="fi"></div>
+                        <div class="fr fg">
+                            <div><label class="fl">Slope (degrees)</label><input type="number" id="slope" value="0.5"
+                                    step="0.1" min="0" class="fi"></div>
+                            <div><label class="fl">River Proximity</label><select id="river" class="fs">
+                                    <option value="1">Near Water</option>
+                                    <option value="0">Far from Water</option>
+                                </select></div>
+                        </div>
+                        <button type="submit" class="btn-p" id="btnP">🔮 Predict Flood Risk</button>
+                    </form>
+                    <div style="margin-top:16px;border-top:1px solid var(--glass-b);padding-top:14px">
+                        <label class="fl" style="margin-bottom:8px">Quick Scenarios</label>
+                        <div style="display:flex;flex-direction:column;gap:6px">
+                            <button class="btn-s" onclick="loadScenario('high')">🔴 Critical Flood Zone — Low elevation,
+                                extreme rain</button>
+                            <button class="btn-s" onclick="loadScenario('medium')">🟡 Moderate Risk — Mid elevation,
+                                heavy rain</button>
+                            <button class="btn-s" onclick="loadScenario('low')">🟢 Safe Highland — High elevation, light
+                                rain</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="gc" style="margin-bottom:24px">
+                    <div class="st"><span>🤖</span> AI Agent Network</div>
+                    <div id="agentStatus">
+                        <div class="ph">
+                            <div class="pi">⏳</div>
+                            <div class="pt">Loading agents...</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="gc">
+                    <div class="st"><span>🚨</span> Live Alert Feed</div>
+                    <div class="af" id="alerts">
+                        <div class="ph">
+                            <div class="pi">📡</div>
+                            <div class="pt">Alerts appear after predictions</div>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Environmental Factors Card -->
-            <div id="factorsCard" class="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700 hidden">
-                <h3 class="text-xl font-bold mb-4">🌍 Environmental Factors</h3>
-                <div id="factorsContent" class="space-y-3 text-sm">
-                    <!-- Populated dynamically -->
-                </div>
-            </div>
-            
-            <!-- Resources Card -->
-            <div id="resourcesCard" class="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700 hidden">
-                <h3 class="text-xl font-bold mb-4">💼 Mobilized Resources</h3>
-                <div id="resourcesContent" class="space-y-2">
-                    <!-- Populated dynamically -->
-                </div>
-            </div>
-        </div>
-        
-        <!-- RIGHT COLUMN: Alerts -->
-        <div class="lg:col-span-1 space-y-6">
-            
-            <!-- Real-time Alerts Card -->
-            <div class="bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
-                <h2 class="text-2xl font-bold mb-4 flex items-center">
-                    🚨 Real-Time Alerts
-                </h2>
-                
-                <div id="alertsContainer" class="space-y-3 max-h-[600px] overflow-y-auto">
-                    <div class="text-center py-8 text-gray-500">
-                        <div class="text-4xl mb-2">📡</div>
-                        <p class="text-sm">Connect WebSocket to receive alerts</p>
+
+            <!-- RIGHT: Results -->
+            <div class="right">
+                <div class="gc" id="resCard">
+                    <div class="st"><span>📊</span> Prediction Results</div>
+                    <div id="results">
+                        <div class="ph">
+                            <div class="pi">🔮</div>
+                            <div class="pt">Enter location data and click "Predict Flood Risk" to see AI analysis</div>
+                        </div>
                     </div>
                 </div>
+                <div class="two-col" id="analysisRow" style="display:none">
+                    <div class="gc">
+                        <div class="st"><span>⚡</span> Risk Factor Analysis</div>
+                        <div id="factors"></div>
+                    </div>
+                    <div class="gc">
+                        <div class="st"><span>🌤️</span> Weather Conditions</div>
+                        <div id="weather"></div>
+                    </div>
+                </div>
+                <div class="two-col" id="safetyRow" style="display:none">
+                    <div class="gc">
+                        <div class="st"><span>🛡️</span> Safety Advisory</div>
+                        <div id="safety"></div>
+                    </div>
+                    <div class="gc">
+                        <div class="st"><span>🚑</span> Emergency Response</div>
+                        <div id="emergency"></div>
+                    </div>
+                </div>
+                <!-- Map with style picker -->
+                <div class="gc">
+                    <div class="st"><span>🗺️</span> Flood Risk Map — India</div>
+                    <div class="map-style-picker" id="mapStylePicker">
+                        <button class="map-style-btn active" data-map="dark" onclick="setMapStyle('dark')">🌑
+                            Dark</button>
+                        <button class="map-style-btn" data-map="light" onclick="setMapStyle('light')">☀️ Light</button>
+                        <button class="map-style-btn" data-map="satellite" onclick="setMapStyle('satellite')">🛰️
+                            Satellite</button>
+                        <button class="map-style-btn" data-map="terrain" onclick="setMapStyle('terrain')">🏔️
+                            Terrain</button>
+                        <button class="map-style-btn" data-map="watercolor" onclick="setMapStyle('watercolor')">🎨
+                            Watercolor</button>
+                        <button class="map-style-btn" data-map="topo" onclick="setMapStyle('topo')">📐 Topo</button>
+                    </div>
+                    <div id="floodMap"></div>
+                </div>
+                <div class="gc" id="histCard" style="display:none">
+                    <div class="st"><span>📈</span> Prediction History</div>
+                    <div class="chart-c"><canvas id="histChart"></canvas></div>
+                </div>
             </div>
-            
         </div>
     </div>
 
     <script>
-        let ws = null;
-        let wsConnected = false;
+        // ── State ──
+        let ws = null, wsOn = false, hChart = null, fMap = null, currentTileLayer = null, currentTheme = 'dark', currentMapStyle = 'dark';
 
-        // Load test scenarios
-        function loadScenario(type) {
-            const scenarios = {
-                high: {
-                    name: 'Critical Flood Zone',
-                    lat: 19.076,
-                    lon: 72.877,
-                    elevation: 5,
-                    rainfall: 850,
-                    slope: 0.2,
-                    river: 1
-                },
-                medium: {
-                    name: 'Moderate Risk Area',
-                    lat: 19.076,
-                    lon: 72.877,
-                    elevation: 50,
-                    rainfall: 400,
-                    slope: 2.0,
-                    river: 1
-                },
-                low: {
-                    name: 'Safe Highland',
-                    lat: 18.520,
-                    lon: 73.856,
-                    elevation: 600,
-                    rainfall: 100,
-                    slope: 8.0,
-                    river: 0
-                }
-            };
-            
-            const scenario = scenarios[type];
-            document.getElementById('locationName').value = scenario.name;
-            document.getElementById('latitude').value = scenario.lat;
-            document.getElementById('longitude').value = scenario.lon;
-            document.getElementById('elevation').value = scenario.elevation;
-            document.getElementById('rainfall').value = scenario.rainfall;
-            document.getElementById('slope').value = scenario.slope;
-            document.getElementById('riverProximity').value = scenario.river;
+        // ── Map Tile URLs ──
+        const MAP_TILES = {
+            dark: { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', attr: '&copy; CartoDB &copy; OSM' },
+            light: { url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', attr: '&copy; CartoDB &copy; OSM' },
+            satellite: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attr: '&copy; Esri' },
+            terrain: { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', attr: '&copy; OpenTopoMap' },
+            watercolor: { url: 'https://tiles.stadiamaps.com/tiles/stamen_watercolor/{z}/{x}/{y}.jpg', attr: '&copy; Stadia Maps &copy; Stamen' },
+            topo: { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '&copy; OpenStreetMap' }
+        };
+
+        // ── Theme System ──
+        function setTheme(theme) {
+            currentTheme = theme;
+            document.documentElement.setAttribute('data-theme', theme);
+            document.querySelectorAll('.theme-btn').forEach(b => { b.classList.toggle('active', b.dataset.t === theme); });
+            localStorage.setItem('flood-theme', theme);
+            // Auto-switch map to match
+            if (theme === 'light' && currentMapStyle === 'dark') { setMapStyle('light'); }
+            else if (theme !== 'light' && currentMapStyle === 'light') { setMapStyle('dark'); }
+            // Rebuild chart if exists
+            if (hChart) updateHist();
         }
 
-        // Form submission
-        document.getElementById('floodForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const data = {
-                location: {
-                    name: document.getElementById('locationName').value,
-                    lat: parseFloat(document.getElementById('latitude').value),
-                    lon: parseFloat(document.getElementById('longitude').value),
-                    elevation_m: parseFloat(document.getElementById('elevation').value),
-                    rainfall_mm: parseFloat(document.getElementById('rainfall').value),
-                    slope_deg: parseFloat(document.getElementById('slope').value),
-                    river_proximity: parseInt(document.getElementById('riverProximity').value)
-                }
-            };
-            
-            // Show loading
-            document.getElementById('resultsContainer').innerHTML = `
-                <div class="text-center py-12">
-                    <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                    <p class="text-gray-400">Analyzing flood risk...</p>
-                </div>
-            `;
-            
-            try {
-                const response = await fetch('/predict', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(data)
+        // ── Map Style System ──
+        function setMapStyle(style) {
+            if (!fMap) return;
+            currentMapStyle = style;
+            const tile = MAP_TILES[style] || MAP_TILES.dark;
+            if (currentTileLayer) fMap.removeLayer(currentTileLayer);
+            currentTileLayer = L.tileLayer(tile.url, { attribution: tile.attr, maxZoom: 18 }).addTo(fMap);
+            document.querySelectorAll('.map-style-btn').forEach(b => { b.classList.toggle('active', b.dataset.map === style); });
+            localStorage.setItem('flood-map-style', style);
+        }
+
+        // ── Map Init ──
+        function initMap() {
+            fMap = L.map('floodMap').setView([22.5, 78.5], 5);
+            const savedStyle = localStorage.getItem('flood-map-style') || 'dark';
+            currentMapStyle = savedStyle;
+            const tile = MAP_TILES[savedStyle] || MAP_TILES.dark;
+            currentTileLayer = L.tileLayer(tile.url, { attribution: tile.attr, maxZoom: 18 }).addTo(fMap);
+            document.querySelectorAll('.map-style-btn').forEach(b => { b.classList.toggle('active', b.dataset.map === savedStyle); });
+
+            // Load flood zones
+            fetch('/api/flood-zones').then(r => r.json()).then(zones => {
+                zones.forEach(z => {
+                    const c = z.risk === 'HIGH' ? '#ef4444' : z.risk === 'MEDIUM' ? '#f59e0b' : '#10b981';
+                    L.circleMarker([z.lat, z.lon], { radius: 8, fillColor: c, fillOpacity: .6, color: c, weight: 2, opacity: .8 }).addTo(fMap)
+                        .bindPopup('<b>' + z.name + '</b><br>Risk: <span style="color:' + c + ';font-weight:700">' + z.risk + '</span><br>Pop: ' + z.population + '<br><small>' + z.reason + '</small>');
                 });
-                
-                const result = await response.json();
-                displayResults(result);
-            } catch (error) {
-                document.getElementById('resultsContainer').innerHTML = `
-                    <div class="text-center py-12 text-red-400">
-                        <div class="text-6xl mb-4">❌</div>
-                        <p>Error: ${error.message}</p>
-                    </div>
-                `;
-            }
+            });
+        }
+
+        // ── Form Submit ──
+        document.getElementById('floodForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const btn = document.getElementById('btnP');
+            btn.classList.add('ld'); btn.textContent = '⏳ Analyzing...';
+            document.getElementById('results').innerHTML = '<div class="ph"><div class="spinner"></div><div class="pt">AI agents analyzing flood risk...</div></div>';
+            const data = { location: { name: document.getElementById('locName').value, lat: parseFloat(document.getElementById('lat').value), lon: parseFloat(document.getElementById('lon').value), elevation_m: parseFloat(document.getElementById('elev').value), rainfall_mm: parseFloat(document.getElementById('rain').value), slope_deg: parseFloat(document.getElementById('slope').value), river_proximity: parseInt(document.getElementById('river').value) } };
+            try {
+                const res = await fetch('/predict', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                const r = await res.json(); showResults(r); updateHist(); updateStats();
+                const c = r.risk_level === 'HIGH' ? '#ef4444' : r.risk_level === 'MEDIUM' ? '#f59e0b' : '#10b981';
+                L.circleMarker([data.location.lat, data.location.lon], { radius: 12, fillColor: c, fillOpacity: .8, color: '#fff', weight: 2 }).addTo(fMap)
+                    .bindPopup('<b>' + data.location.name + '</b><br>Risk: <b style="color:' + c + '">' + r.risk_level + '</b><br>Prob: ' + (r.flood_probability * 100).toFixed(1) + '%').openPopup();
+                fMap.setView([data.location.lat, data.location.lon], 8);
+            } catch (err) { document.getElementById('results').innerHTML = '<div class="ph"><div class="pi">❌</div><div class="pt">Error: ' + err.message + '</div></div>'; }
+            btn.classList.remove('ld'); btn.textContent = '🔮 Predict Flood Risk';
         });
 
-        // Display results
-        function displayResults(result) {
-            const probability = (result.flood_probability * 100).toFixed(1);
-            const riskLevel = result.risk_level;
-            
-            let riskClass = '';
-            let emoji = '';
-            
-            if (riskLevel === 'HIGH') {
-                riskClass = 'risk-high';
-                emoji = '🔴';
-            } else if (riskLevel === 'MEDIUM') {
-                riskClass = 'risk-medium';
-                emoji = '⚠️';
-            } else {
-                riskClass = 'risk-low';
-                emoji = '✅';
+        // ── Display Results ──
+        function showResults(r) {
+            const p = (r.flood_probability * 100).toFixed(1), rl = r.risk_level;
+            const cls = rl === 'HIGH' ? 'high' : rl === 'MEDIUM' ? 'medium' : 'low';
+            const em = rl === 'HIGH' ? '🔴' : rl === 'MEDIUM' ? '⚠️' : '✅';
+            const c = r.confidence || {};
+            const cc = c.level === 'High' ? 'var(--green)' : c.level === 'Medium' ? 'var(--yellow)' : 'var(--blue)';
+            document.getElementById('results').innerHTML =
+                '<div class="rd ' + cls + ' fade-in"><div class="re">' + em + '</div><div class="rl">' + rl + ' RISK</div><div class="rp">' + p + '<span class="pct">%</span></div>' +
+                '<div class="cb"><div class="cb-h"><span style="color:var(--txt3)">Confidence</span><span style="color:' + cc + ';font-weight:600">' + (c.level || 'N/A') + ' (' + ((c.score || 0) * 100).toFixed(0) + '%)</span></div>' +
+                '<div class="cb-t"><div class="cb-f" style="width:' + ((c.score || .5) * 100) + '%;background:' + cc + '"></div></div>' +
+                '<div class="cb-b"><span>Low: ' + ((c.lower_bound || 0) * 100).toFixed(1) + '%</span><span>High: ' + ((c.upper_bound || 0) * 100).toFixed(1) + '%</span></div></div></div>';
+
+            document.getElementById('analysisRow').style.display = '';
+            document.getElementById('factors').innerHTML = (r.risk_factors || []).map(x =>
+                '<div class="fi-item fade-in"><div class="fi-icon">' + x.icon + '</div><div class="fi-info"><div class="fi-name">' + x.factor + '</div><div class="fi-val">' + x.value + '</div></div><span class="fi-badge ' + x.impact + '">' + x.impact + '</span></div>'
+            ).join('');
+
+            const w = r.weather || {};
+            if (w.temperature_c !== undefined) {
+                document.getElementById('weather').innerHTML =
+                    '<div class="wb"><div class="wbi">' + (w.condition_icon || '🌤️') + '</div><div class="wbt">' + w.temperature_c + '°C</div><div class="wbc">' + (w.condition || '') + '</div></div>' +
+                    '<div class="wg">' +
+                    '<div class="wi"><span class="wv">💧 ' + w.humidity_pct + '%</span><span class="wl">Humidity</span></div>' +
+                    '<div class="wi"><span class="wv">💨 ' + w.wind_speed_kmh + ' km/h</span><span class="wl">Wind ' + (w.wind_direction || '') + '</span></div>' +
+                    '<div class="wi"><span class="wv">📊 ' + w.pressure_hpa + ' hPa</span><span class="wl">Pressure</span></div>' +
+                    '<div class="wi"><span class="wv">👁️ ' + w.visibility_km + ' km</span><span class="wl">Visibility</span></div></div>';
             }
-            
-            document.getElementById('resultsContainer').innerHTML = `
-                <div class="${riskClass} rounded-xl p-8 text-center mb-6">
-                    <div class="text-6xl mb-4">${emoji}</div>
-                    <h3 class="text-3xl font-bold mb-2">${riskLevel} RISK</h3>
-                    <p class="text-2xl">Probability: ${probability}%</p>
-                </div>
-            `;
-            
-            // Show factors
-            const features = result.features_used || {};
-            document.getElementById('factorsCard').classList.remove('hidden');
-            document.getElementById('factorsContent').innerHTML = `
-                <div class="flex justify-between">
-                    <span>Elevation:</span>
-                    <span class="font-bold">${features.elevation_m || 0}m</span>
-                </div>
-                <div class="flex justify-between">
-                    <span>Rainfall (24h):</span>
-                    <span class="font-bold">${features.rainfall_24h_mm || features.rainfall_mm || 0}mm</span>
-                </div>
-                <div class="flex justify-between">
-                    <span>Slope:</span>
-                    <span class="font-bold">${features.slope_deg || 0}°</span>
-                </div>
-                <div class="flex justify-between">
-                    <span>Distance to Water:</span>
-                    <span class="font-bold">${features.distance_to_water_m || 0}m</span>
-                </div>
-            `;
+
+            fetch('/api/safety-tips/' + rl).then(x => x.json()).then(d => {
+                document.getElementById('safetyRow').style.display = '';
+                const t = d.safety_tips || {}; let h = '';
+                if (t.dos && t.dos.length) { h += '<div class="ss"><div class="sh dos">✅ Do\'s</div>'; h += t.dos.map(x => '<div class="ti"><span class="tic">' + x.icon + '</span><span>' + x.tip + '<span class="tp ' + x.priority + '">' + x.priority + '</span></span></div>').join(''); h += '</div>'; }
+                if (t.donts && t.donts.length) { h += '<div class="ss"><div class="sh donts">🚫 Don\'ts</div>'; h += t.donts.map(x => '<div class="ti"><span class="tic">' + x.icon + '</span><span>' + x.tip + '<span class="tp ' + x.priority + '">' + x.priority + '</span></span></div>').join(''); h += '</div>'; }
+                document.getElementById('safety').innerHTML = h;
+                let e = ''; const ev = d.evacuation || {};
+                const ec = ev.urgency === 'critical' ? 'critical' : ev.urgency === 'moderate' ? 'moderate' : 'none';
+                e += '<div class="es ' + ec + '">' + (ev.status || 'N/A') + '</div>';
+                if (ev.routes && ev.routes.length) e += ev.routes.map(x => '<div class="ri">🚗 <b>' + x.direction + '</b> → ' + x.destination + ' (' + x.distance + ')</div>').join('');
+                e += '<div style="margin-top:14px"><div class="fl" style="margin-bottom:8px">Emergency Contacts</div>';
+                (d.emergency_contacts || []).forEach(x => { e += '<div class="ci"><span class="cn">' + x.icon + ' ' + x.name + '</span><span class="cnum">' + x.number + '</span></div>'; });
+                e += '</div>'; document.getElementById('emergency').innerHTML = e;
+            });
         }
 
-        // WebSocket connection
-        function connectWebSocket() {
-            if (wsConnected) return;
-            
-            const clientId = 'client_' + Math.random().toString(36).substr(2, 9);
-            ws = new WebSocket(`ws://localhost:8000/ws/alerts/${clientId}`);
-            
-            ws.onopen = () => {
-                wsConnected = true;
-                document.getElementById('wsStatus').innerHTML = '🟢 Connected';
-                document.getElementById('wsStatus').className = 'px-3 py-1 rounded-full text-xs font-semibold bg-green-600';
-                document.getElementById('connectBtn').disabled = true;
-                document.getElementById('connectBtn').className = 'px-4 py-2 bg-gray-600 rounded-lg text-sm font-semibold cursor-not-allowed';
-                
-                addAlert('info', 'Connected to real-time alert system');
-            };
-            
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                
-                if (data.type === 'FLOOD_ALERT') {
-                    const locationName = data.location?.name || 'Unknown';
-                    const severity = data.risk_level === 'HIGH' ? '🔴 CRITICAL' : '⚠️ WARNING';
-                    
-                    addAlert('warning', `${severity}: ${(data.probability * 100).toFixed(1)}% flood risk in ${locationName}`);
-                }
-            };
-            
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                addAlert('error', 'WebSocket connection error');
-            };
-            
-            ws.onclose = () => {
-                wsConnected = false;
-                document.getElementById('wsStatus').innerHTML = '🔴 Disconnected';
-                document.getElementById('wsStatus').className = 'px-3 py-1 rounded-full text-xs font-semibold bg-gray-700';
-                document.getElementById('connectBtn').disabled = false;
-                document.getElementById('connectBtn').className = 'px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold transition';
-            };
-        }
-
-        // Add alert to feed
-        function addAlert(type, message) {
-            const container = document.getElementById('alertsContainer');
-            
-            // Clear placeholder
-            if (container.querySelector('.text-center')) {
-                container.innerHTML = '';
-            }
-            
-            const colors = {
-                info: 'bg-blue-900 border-blue-600',
-                warning: 'bg-orange-900 border-orange-600',
-                error: 'bg-red-900 border-red-600'
-            };
-            
-            const alert = document.createElement('div');
-            alert.className = `alert-item p-4 rounded-lg border ${colors[type]} text-sm`;
-            alert.innerHTML = `
-                <div class="font-semibold mb-1">${message}</div>
-                <div class="text-xs text-gray-400">${new Date().toLocaleTimeString()}</div>
-            `;
-            
-            container.insertBefore(alert, container.firstChild);
-            
-            // Limit to 20 alerts
-            while (container.children.length > 20) {
-                container.removeChild(container.lastChild);
-            }
-        }
-
-        // Auto-connect WebSocket on page load
-        setTimeout(() => {
-            connectWebSocket();
-            updateAgentStatus();
-            // Update agent status every 3 seconds
-            setInterval(updateAgentStatus, 3000);
-        }, 1000);
-        
-        // Fetch and display agent status
-        async function updateAgentStatus() {
-            try {
-                const response = await fetch('/agent-status');
-                const agents = await response.json();
-                
-                const statusMap = {
-                    'monitoring': 'Monitoring Agent',
-                    'prediction': 'Prediction Agent',
-                    'alert': 'Alert Agent',
-                    'resource': 'Resource Agent'
-                };
-                
-                let html = '';
-                for (const [key, agent] of Object.entries(agents)) {
-                    const name = statusMap[key] || agent.agent_type;
-                    const status = agent.status.toUpperCase();
-                    const actionCount = agent.action_count || 0;
-                    
-                    let statusClass = 'bg-gray-600';
-                    let statusText = status;
-                    
-                    if (status === 'MONITORING' || status === 'PREDICTING' || status === 'ALERTING' || status === 'MOBILIZING') {
-                        statusClass = 'bg-green-600';
-                        statusText = 'ACTIVE';
-                    } else if (status === 'READY') {
-                        statusClass = 'bg-blue-600';
-                        statusText = 'READY';
-                    } else if (status === 'IDLE') {
-                        statusClass = 'bg-gray-600';
-                        statusText = 'IDLE';
+        // ── History Chart ──
+        function updateHist() {
+            fetch('/api/history').then(r => r.json()).then(d => {
+                if (!d.length) return;
+                document.getElementById('histCard').style.display = '';
+                const sl = d.slice(0, 15).reverse();
+                const lb = sl.map(x => x.location), pr = sl.map(x => (x.probability * 100).toFixed(1));
+                const cl = sl.map(x => x.risk_level === 'HIGH' ? 'rgba(239,68,68,.7)' : x.risk_level === 'MEDIUM' ? 'rgba(245,158,11,.7)' : 'rgba(16,185,129,.7)');
+                const txtColor = getComputedStyle(document.documentElement).getPropertyValue('--txt3').trim() || '#64748b';
+                const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim() || 'rgba(255,255,255,.04)';
+                if (hChart) hChart.destroy();
+                hChart = new Chart(document.getElementById('histChart'), {
+                    type: 'bar', data: { labels: lb, datasets: [{ label: 'Flood Probability %', data: pr, backgroundColor: cl, borderRadius: 6, borderSkipped: false }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: txtColor, font: { family: 'Inter' } } } },
+                        scales: {
+                            y: { beginAtZero: true, max: 100, ticks: { color: txtColor, font: { family: 'Inter' } }, grid: { color: gridColor } },
+                            x: { ticks: { color: txtColor, font: { family: 'Inter', size: 10 } }, grid: { display: false } }
+                        }
                     }
-                    
-                    html += `
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm">${name}</span>
-                            <div class="flex items-center gap-2">
-                                ${actionCount > 0 ? `<span class="text-xs text-gray-400">${actionCount}x</span>` : ''}
-                                <span class="px-3 py-1 ${statusClass} rounded-full text-xs font-bold">${statusText}</span>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                document.getElementById('agentStatus').innerHTML = html;
-            } catch (error) {
-                console.error('Failed to fetch agent status:', error);
-            }
+                });
+            });
         }
+
+        function updateStats() { fetch('/api/stats').then(r => r.json()).then(s => { document.getElementById('statPred').textContent = s.total_predictions || 0; }); }
+
+        function updateAgents() {
+            fetch('/agent-status').then(r => r.json()).then(a => {
+                const m = { monitoring: '🔍 Monitor', prediction: '🤖 Predictor', alert: '🚨 Alert', resource: '💼 Resource' }; let h = '';
+                for (const [k, v] of Object.entries(a)) {
+                    const s = v.status.toUpperCase(); const act = ['MONITORING', 'PREDICTING', 'ALERTING', 'MOBILIZING'].includes(s);
+                    const c = act ? 'active' : s === 'READY' ? 'ready' : 'idle'; const l = act ? 'ACTIVE' : s;
+                    h += '<div class="ar"><span class="an">' + (m[k] || v.agent_type) + '</span><div style="display:flex;align-items:center;gap:8px">' + (v.action_count ? '<span style="font-size:.75rem;color:var(--txt3)">' + v.action_count + 'x</span>' : '') + '<span class="ab ' + c + '">' + l + '</span></div></div>';
+                } document.getElementById('agentStatus').innerHTML = h;
+            }).catch(() => { });
+        }
+
+        function loadScenario(t) {
+            const s = { high: { n: 'Critical Flood Zone', la: 19.076, lo: 72.877, e: 5, r: 850, sl: .2, rp: 1 }, medium: { n: 'Moderate Risk Area', la: 22.572, lo: 88.363, e: 50, r: 400, sl: 2, rp: 1 }, low: { n: 'Safe Highland', la: 18.520, lo: 73.856, e: 600, r: 100, sl: 8, rp: 0 } }[t];
+            document.getElementById('locName').value = s.n; document.getElementById('lat').value = s.la; document.getElementById('lon').value = s.lo;
+            document.getElementById('elev').value = s.e; document.getElementById('rain').value = s.r; document.getElementById('slope').value = s.sl; document.getElementById('river').value = s.rp;
+        }
+
+        function connectWS() {
+            if (wsOn) return;
+            const id = 'c_' + Math.random().toString(36).substr(2, 9);
+            ws = new WebSocket('ws://' + location.host + '/ws/alerts/' + id);
+            ws.onopen = () => { wsOn = true; document.getElementById('wsStatus').innerHTML = '<span class="dot on"></span>Connected'; addAlert('info', 'Connected to real-time alert system'); };
+            ws.onmessage = e => { const d = JSON.parse(e.data); if (d.type === 'FLOOD_ALERT') { const s = d.risk_level === 'HIGH' ? 'critical' : 'warning'; addAlert(s, d.risk_level + ' RISK: ' + (d.probability * 100).toFixed(1) + '% flood risk in ' + (d.location?.name || 'Unknown')); } };
+            ws.onclose = () => { wsOn = false; document.getElementById('wsStatus').innerHTML = '<span class="dot off"></span>Disconnected'; setTimeout(connectWS, 3000); };
+            ws.onerror = () => { addAlert('critical', 'WebSocket error'); };
+        }
+
+        function addAlert(type, msg) {
+            const c = document.getElementById('alerts'); if (c.querySelector('.ph')) c.innerHTML = '';
+            const el = document.createElement('div'); el.className = 'ai ' + type;
+            el.innerHTML = '<div class="am">' + msg + '</div><div class="at">' + new Date().toLocaleTimeString() + '</div>';
+            c.insertBefore(el, c.firstChild); while (c.children.length > 20) c.removeChild(c.lastChild);
+        }
+
+        // ── Init ──
+        document.addEventListener('DOMContentLoaded', () => {
+            // Restore saved theme
+            const savedTheme = localStorage.getItem('flood-theme') || 'dark';
+            setTheme(['dark', 'light'].includes(savedTheme) ? savedTheme : 'dark');
+            initMap(); updateAgents(); updateStats();
+            setInterval(updateAgents, 5000); setTimeout(connectWS, 500);
+        });
     </script>
 </body>
+
 </html>
