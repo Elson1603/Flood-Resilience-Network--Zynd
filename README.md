@@ -25,7 +25,6 @@ An interactive, viewer-friendly project focused on exploring, communicating, and
 - [Troubleshooting](#troubleshooting)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
-- [License](#license)
 - [Acknowledgements](#acknowledgements)
 
 ---
@@ -319,9 +318,7 @@ Please include:
 
 ---
 
-## License
 
-Add a license file (e.g., MIT, Apache-2.0, GPL-3.0) and mention it here.
 
 ---
 
